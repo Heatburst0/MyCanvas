@@ -69,6 +69,15 @@ fun CanvasEditorScreen() {
                     onDragStart = { pushToUndo() }, // save snapshot before drag
                     onUpdate = { updated ->
                         texts = texts.map { if (it.id == updated.id) updated else it }
+                    },
+                    onRequestEdit = { updated ->
+                        texts = texts.map { if (it.id == updated.id) updated else it }
+                    },
+                    onDone = { finished ->
+                        pushToUndo() // commit edit only once Done is pressed
+                        texts = texts.map {
+                            if (it.id == finished.id) finished.copy(isEditing = false) else it
+                        }
                     }
                 )
             }

@@ -9,5 +9,6 @@ data class CanvasText(
     val x: Float,
     val y: Float,
     val fontSize: Int = 24,
-    val fontFamily: FontFamily = FontFamily.Default
+    val fontFamily: FontFamily = FontFamily.Default,
+    val isEditing: Boolean = false
 )

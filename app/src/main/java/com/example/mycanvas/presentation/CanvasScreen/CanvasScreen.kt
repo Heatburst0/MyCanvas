@@ -13,8 +13,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -24,9 +31,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.mycanvas.R
 import com.example.mycanvas.data.CanvasText
 import com.example.mycanvas.presentation.components.DraggableText
 
@@ -34,17 +42,15 @@ import com.example.mycanvas.presentation.components.DraggableText
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun CanvasEditorScreen() {
-    // Undo / redo stacks of snapshots
     val undoStack = remember { mutableStateListOf<List<CanvasText>>() }
     val redoStack = remember { mutableStateListOf<List<CanvasText>>() }
 
-    // Single source of truth for items on canvas
     var texts by remember { mutableStateOf(listOf<CanvasText>()) }
+    var selectedTextId by remember { mutableStateOf<String?>(null) }
+    var editingText by remember { mutableStateOf<CanvasText?>(null) }
 
     fun pushToUndo() {
-        // save deep copy snapshot
         undoStack.add(texts.map { it.copy() })
-        // clear redo after new action
         redoStack.clear()
     }
 
@@ -54,7 +60,6 @@ fun CanvasEditorScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Canvas area
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -62,23 +67,21 @@ fun CanvasEditorScreen() {
                 .background(Color(0xFFF5F5F5), shape = RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center
         ) {
-            // Draw all texts from the source-of-truth list
             texts.forEach { item ->
+                val currentText = texts.find { it.id == item.id }!! // always latest state
                 DraggableText(
-                    textItem = item,
-                    onDragStart = { pushToUndo() }, // save snapshot before drag
+                    textItem = currentText,
+                    isSelected = currentText.id == selectedTextId,
+                    onDragStart = { pushToUndo() },
                     onUpdate = { updated ->
-                        texts = texts.map { if (it.id == updated.id) updated else it }
-                    },
-                    onRequestEdit = { updated ->
-                        texts = texts.map { if (it.id == updated.id) updated else it }
-                    },
-                    onDone = { finished ->
-                        pushToUndo() // commit edit only once Done is pressed
+                        // preserve edited text and update only position
                         texts = texts.map {
-                            if (it.id == finished.id) finished.copy(isEditing = false) else it
+                            if (it.id == updated.id)
+                                it.copy(x = updated.x, y = updated.y, text = it.text)
+                            else it
                         }
-                    }
+                    },
+                    onSelect = { selected -> selectedTextId = selected.id }
                 )
             }
 
@@ -87,16 +90,39 @@ fun CanvasEditorScreen() {
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // Buttons Row
+        // Text action row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            val isTextSelected = selectedTextId != null
+            IconButton(onClick = {
+                editingText = texts.find { it.id == selectedTextId }
+            }, enabled = isTextSelected) {
+                Icon(Icons.Default.Edit, contentDescription = "Edit")
+            }
+            IconButton(onClick = { /* Bold logic */ }, enabled = isTextSelected) {
+                Icon(painter = painterResource(R.drawable.ic_bold), contentDescription = "Bold")
+            }
+            IconButton(onClick = { /* Italic logic */ }, enabled = isTextSelected) {
+                Icon(painter = painterResource(R.drawable.ic_italic), contentDescription = "Italic")
+            }
+            IconButton(onClick = { /* Underline logic */ }, enabled = isTextSelected) {
+                Icon(painter = painterResource(R.drawable.ic_underlined), contentDescription = "Underline")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Add / Undo / Redo row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             Button(onClick = {
                 pushToUndo()
-                // add at some default position (you can compute center if you want)
                 texts = texts + CanvasText(text = "Sample Text", x = 120f, y = 120f)
             }) {
                 Text("Add Text")
@@ -104,9 +130,11 @@ fun CanvasEditorScreen() {
 
             Button(onClick = {
                 if (undoStack.isNotEmpty()) {
-                    // save current state to redo, then restore last undo snapshot
                     redoStack.add(texts.map { it.copy() })
                     texts = undoStack.removeLast()
+                    if (texts.none { it.id == selectedTextId }) {
+                        selectedTextId = null
+                    }
                 }
             }, enabled = undoStack.isNotEmpty()) {
                 Text("←")
@@ -121,5 +149,36 @@ fun CanvasEditorScreen() {
                 Text("→")
             }
         }
+    }
+
+    // Edit dialog
+    editingText?.let { text ->
+        var editedValue by remember { mutableStateOf(text.text) }
+        AlertDialog(
+            onDismissRequest = { editingText = null },
+            title = { Text("Edit Text") },
+            text = {
+                TextField(
+                    value = editedValue,
+                    onValueChange = { editedValue = it }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    texts = texts.map {
+                        if (it.id == text.id) it.copy(text = editedValue) else it
+                    }
+                    pushToUndo()
+                    editingText = null
+                }) {
+                    Text("Done")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingText = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

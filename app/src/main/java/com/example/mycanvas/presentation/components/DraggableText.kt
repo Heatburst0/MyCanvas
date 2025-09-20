@@ -1,17 +1,14 @@
 package com.example.mycanvas.presentation.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,10 +30,10 @@ import kotlin.math.roundToInt
 @Composable
 fun DraggableText(
     textItem: CanvasText,
+    isSelected: Boolean,
     onDragStart: () -> Unit,
     onUpdate: (CanvasText) -> Unit,
-    onRequestEdit: (CanvasText) -> Unit,
-    onDone: (CanvasText) -> Unit
+    onSelect: (CanvasText) -> Unit
 ) {
     var offsetX by remember { mutableStateOf(textItem.x) }
     var offsetY by remember { mutableStateOf(textItem.y) }
@@ -61,37 +58,15 @@ fun DraggableText(
                 }
             )
         }
+        .clickable { onSelect(textItem) }
 
-    if (textItem.isEditing) {
-        Row(
-            modifier = baseModifier
-                .background(Color.White, RoundedCornerShape(4.dp))
-                .padding(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            BasicTextField(
-                value = textItem.text,
-                onValueChange = { newText ->
-                    onUpdate(textItem.copy(text = newText))
-                },
-                textStyle = TextStyle(
-                    fontSize = textItem.fontSize.sp,
-                    fontFamily = textItem.fontFamily
-                ),
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = { onDone(textItem) }) {
-                Icon(Icons.Default.Check, contentDescription = "Done", tint = Color.Green)
-            }
-        }
-    } else {
+    Box(
+        modifier = if (isSelected) baseModifier.border(2.dp, Color.Blue, RoundedCornerShape(4.dp)) else baseModifier
+    ) {
         Text(
             text = textItem.text,
             fontSize = textItem.fontSize.sp,
-            fontFamily = textItem.fontFamily,
-            modifier = baseModifier.clickable {
-                onRequestEdit(textItem.copy(isEditing = true))
-            }
+            fontFamily = textItem.fontFamily
         )
     }
 }

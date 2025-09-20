@@ -35,9 +35,11 @@ fun DraggableText(
     onUpdate: (CanvasText) -> Unit,
     onSelect: (CanvasText) -> Unit
 ) {
+    // position state that resets when x/y change
     var offsetX by remember { mutableStateOf(textItem.x) }
     var offsetY by remember { mutableStateOf(textItem.y) }
 
+    // keep offsets in sync with incoming model
     LaunchedEffect(textItem.id, textItem.x, textItem.y) {
         offsetX = textItem.x
         offsetY = textItem.y
@@ -54,6 +56,7 @@ fun DraggableText(
                     offsetY += dragAmount.y
                 },
                 onDragEnd = {
+                    // report only position changes upward (do NOT overwrite text)
                     onUpdate(textItem.copy(x = offsetX, y = offsetY))
                 }
             )
@@ -65,8 +68,8 @@ fun DraggableText(
     ) {
         Text(
             text = textItem.text,
-            fontSize = textItem.fontSize.sp,
-            fontFamily = textItem.fontFamily
+            fontSize = textItem.fontSize.sp // keep original font handling from your model
         )
     }
 }
+

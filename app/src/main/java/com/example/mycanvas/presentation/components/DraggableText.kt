@@ -1,13 +1,10 @@
 package com.example.mycanvas.presentation.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,11 +13,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,8 +66,14 @@ fun DraggableText(
     ) {
         Text(
             text = textItem.text,
-            fontSize = textItem.fontSize.sp // keep original font handling from your model
+            fontSize = textItem.fontSize.sp,
+            fontFamily = textItem.fontFamily,
+            fontWeight = if (textItem.isBold) FontWeight.Bold else FontWeight.Normal,
+            fontStyle = if (textItem.isItalic) FontStyle.Italic else FontStyle.Normal,
+            textDecoration = if (textItem.isUnderlined) TextDecoration.Underline else TextDecoration.None,
+            color = Color.Black
         )
+
     }
 }
 

@@ -1,10 +1,12 @@
 package com.example.mycanvas.presentation.CanvasScreen
 
+import android.annotation.SuppressLint
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,6 +20,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -40,10 +44,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.mycanvas.R
@@ -52,6 +56,7 @@ import com.example.mycanvas.presentation.components.DraggableText
 
 
 
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun CanvasEditorScreen() {
@@ -61,6 +66,9 @@ fun CanvasEditorScreen() {
     var texts by remember { mutableStateOf(listOf<CanvasText>()) }
     var selectedTextId by remember { mutableStateOf<String?>(null) }
     var editingText by remember { mutableStateOf<CanvasText?>(null) }
+    var canvasWidth = 0f
+    var canvasHeight = 0f
+    val currentDensity = LocalDensity.current
 
     // push a snapshot of CURRENT state *before* making a change
     fun pushUndoSnapshot() {
@@ -102,24 +110,24 @@ fun CanvasEditorScreen() {
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         // Canvas area
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .background(Color(0xFFF5F5F5), shape = RoundedCornerShape(12.dp)),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.TopStart // Use TopStart so 0,0 is top-left
         ) {
-            // iterate the current list directly (each item already latest)
+            canvasWidth = constraints.maxWidth.toFloat()
+            canvasHeight = constraints.maxHeight.toFloat()
+
             texts.forEach { item ->
                 DraggableText(
                     textItem = item,
                     isSelected = item.id == selectedTextId,
-                    onDragStart = {
-                        // snapshot BEFORE drag so undo restores pre-drag state only
-                        pushUndoSnapshot()
-                    },
+                    canvasWidth = canvasWidth,
+                    canvasHeight = canvasHeight,
+                    onDragStart = { pushUndoSnapshot() },
                     onUpdate = { updated ->
-                        // update only position so we never clobber edited text content
                         texts = texts.map {
                             if (it.id == updated.id) it.copy(x = updated.x, y = updated.y) else it
                         }
@@ -129,15 +137,17 @@ fun CanvasEditorScreen() {
             }
 
             if (texts.isEmpty()) {
-                Text(text = "Canvas", fontSize = 32.sp, color = Color.LightGray)
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(text = "Canvas", fontSize = 32.sp, color = Color.LightGray)
+                }
             }
         }
+
 
         Spacer(modifier = Modifier.height(8.dp))
 
         // Action toolbar
         val isTextSelected = selectedTextId != null && texts.any { it.id == selectedTextId }
-        val currentText = texts.find { it.id == selectedTextId }
 
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -197,17 +207,17 @@ fun CanvasEditorScreen() {
 
                 // Font size controller
                 Surface(
-                    shape = RoundedCornerShape(50),
+                    shape = RoundedCornerShape(25),
                     color = if (isTextSelected) Color.LightGray else Color(0xFFE0E0E0), // ✅ dim when disabled
                     modifier = Modifier.height(40.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(horizontal = 8.dp)
+                        modifier = Modifier.padding(5.dp)
                     ) {
                         // Decrease
-                        TextButton(
+                        Button(
                             onClick = {
                                 currentText?.let {
                                     if (it.fontSize > 8) {
@@ -219,10 +229,15 @@ fun CanvasEditorScreen() {
                                 }
                             },
                             enabled = isTextSelected,
+                            shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(0.dp),
                             modifier = Modifier.size(32.dp)
                         ) {
-                            Text("-", fontSize = 18.sp, textAlign = TextAlign.Center)
+                            Icon(
+                                painter = painterResource(R.drawable.ic_remove), // minus icon
+                                contentDescription = "Decrease Font",
+                                tint = Color.White
+                            )
                         }
 
                         Spacer(Modifier.width(8.dp))
@@ -237,8 +252,8 @@ fun CanvasEditorScreen() {
 
                         Spacer(Modifier.width(8.dp))
 
-                        // Increase
-                        TextButton(
+                        // Increase font size
+                        Button(
                             onClick = {
                                 currentText?.let {
                                     pushUndoSnapshot()
@@ -248,10 +263,15 @@ fun CanvasEditorScreen() {
                                 }
                             },
                             enabled = isTextSelected,
+                            shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(0.dp),
                             modifier = Modifier.size(32.dp)
                         ) {
-                            Text("+", fontSize = 18.sp, textAlign = TextAlign.Center)
+                            Icon(
+                                painter = painterResource(R.drawable.ic_add), // plus icon
+                                contentDescription = "Increase Font",
+                                tint = Color.White
+                            )
                         }
                     }
                 }
@@ -319,24 +339,41 @@ fun CanvasEditorScreen() {
         ) {
             Button(onClick = {
                 pushUndoSnapshot() // snapshot before adding
+
+                val defaultFontSize = 24.sp
+                val textApproxWidth = 100f
+                val textApproxHeight = with(currentDensity) { defaultFontSize.toPx() }
+
                 val newItem = CanvasText(
-                    // create with your own defaults - keep id unique
                     text = "Sample Text",
-                    x = 0f,
-                    y = 0f
+                    fontSize = 24,
+                    x = canvasWidth / 2 - textApproxWidth / 2,
+                    y = canvasHeight / 2 - textApproxHeight / 2
                 )
+
                 texts = texts + newItem
-//                selectedTextId = newItem.id
             }) {
                 Text("Add Text")
             }
-
-            Button(onClick = { undo() }, enabled = undoStack.isNotEmpty()) {
-                Text("←")
+            Button(
+                onClick = { undo() },
+                enabled = undoStack.isNotEmpty(),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_undo),
+                    contentDescription = "Undo")
             }
 
-            Button(onClick = { redo() }, enabled = redoStack.isNotEmpty()) {
-                Text("→")
+            // Redo Button
+            Button(
+                onClick = { redo() },
+                enabled = redoStack.isNotEmpty(),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_redo),
+                    contentDescription = "Redo")
             }
         }
     }
@@ -377,3 +414,4 @@ fun CanvasEditorScreen() {
         )
     }
 }
+

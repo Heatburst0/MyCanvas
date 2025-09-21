@@ -8,35 +8,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,27 +34,29 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.mycanvas.R
 import com.example.mycanvas.data.CanvasText
 import com.example.mycanvas.presentation.components.DraggableText
-
+import com.example.mycanvas.presentation.components.EditTextDialog
+import com.example.mycanvas.presentation.components.FontToolbar
+import com.example.mycanvas.presentation.components.TextStyleRow
 
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun CanvasEditorScreen() {
+
     val undoStack = remember { mutableStateListOf<List<CanvasText>>() }
     val redoStack = remember { mutableStateListOf<List<CanvasText>>() }
 
     var texts by remember { mutableStateOf(listOf<CanvasText>()) }
     var selectedTextId by remember { mutableStateOf<String?>(null) }
     var editingText by remember { mutableStateOf<CanvasText?>(null) }
-    var canvasWidth = 0f
-    var canvasHeight = 0f
+    var canvasWidth by remember { mutableFloatStateOf(0f) }
+    var canvasHeight by remember { mutableFloatStateOf(0f) }
     val currentDensity = LocalDensity.current
 
     // push a snapshot of CURRENT state *before* making a change
@@ -121,19 +110,22 @@ fun CanvasEditorScreen() {
             canvasHeight = constraints.maxHeight.toFloat()
 
             texts.forEach { item ->
-                DraggableText(
-                    textItem = item,
-                    isSelected = item.id == selectedTextId,
-                    canvasWidth = canvasWidth,
-                    canvasHeight = canvasHeight,
-                    onDragStart = { pushUndoSnapshot() },
-                    onUpdate = { updated ->
-                        texts = texts.map {
-                            if (it.id == updated.id) it.copy(x = updated.x, y = updated.y) else it
-                        }
-                    },
-                    onSelect = { selected -> selectedTextId = selected.id }
-                )
+                key(item.id) {
+                    DraggableText(
+                        textItem = item,
+                        isSelected = item.id == selectedTextId,
+                        canvasWidth = canvasWidth,
+                        canvasHeight = canvasHeight,
+                        onDragStart = { pushUndoSnapshot() },
+                        onUpdate = { updated ->
+                            texts = texts.map {
+                                if (it.id == updated.id) it.copy(x = updated.x, y = updated.y) else it
+                            }
+                        },
+                        onSelect = { selected -> selectedTextId = selected.id }
+                    )
+                }
+
             }
 
             if (texts.isEmpty()) {
@@ -155,194 +147,48 @@ fun CanvasEditorScreen() {
         ) {
             // -------- First row: Fonts + Font size --------
             val currentText = texts.find { it.id == selectedTextId }
-            val currentFont = currentText?.fontFamily ?: FontFamily.Default
-            var fontMenuExpanded by remember { mutableStateOf(false) }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp), // ✅ consistent height
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Font dropdown
-                Box {
-                    Button(
-                        onClick = { fontMenuExpanded = !fontMenuExpanded },
-                        enabled = isTextSelected,
-                        modifier = Modifier.height(40.dp)
-                    ) {
-                        Text("Fonts")
-                        Icon(
-                            imageVector = if (fontMenuExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = null
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = fontMenuExpanded,
-                        onDismissRequest = { fontMenuExpanded = false }
-                    ) {
-                        availableFonts.forEach { (name, font) ->
-                            DropdownMenuItem(
-                                text = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(name, fontFamily = font)
-                                        if (font == currentFont) {
-                                            Spacer(Modifier.width(8.dp))
-                                            Text("✔", color = Color.Green)
-                                        }
-                                    }
-                                },
-                                onClick = {
-                                    pushUndoSnapshot()
-                                    texts = texts.map {
-                                        if (it.id == currentText?.id) it.copy(fontFamily = font) else it
-                                    }
-                                    fontMenuExpanded = false
-                                }
-                            )
-                        }
-                    }
+            FontToolbar(
+                isTextSelected = isTextSelected,
+                currentText = currentText,
+                availableFonts = availableFonts,
+                pushUndoSnapshot = { pushUndoSnapshot() },
+                onUpdateText = { updatedText ->
+                    texts = texts.map { if (it.id == updatedText.id) updatedText else it }
                 }
-
-                // Font size controller
-                Surface(
-                    shape = RoundedCornerShape(25),
-                    color = if (isTextSelected) Color.LightGray else Color(0xFFE0E0E0), // ✅ dim when disabled
-                    modifier = Modifier.height(40.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(5.dp)
-                    ) {
-                        // Decrease
-                        Button(
-                            onClick = {
-                                currentText?.let {
-                                    if (it.fontSize > 8) {
-                                        pushUndoSnapshot()
-                                        texts = texts.map { t ->
-                                            if (t.id == it.id) t.copy(fontSize = t.fontSize - 2) else t
-                                        }
-                                    }
-                                }
-                            },
-                            enabled = isTextSelected,
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(0.dp),
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_remove), // minus icon
-                                contentDescription = "Decrease Font",
-                                tint = Color.White
-                            )
-                        }
-
-                        Spacer(Modifier.width(8.dp))
-
-                        // Display current size
-                        Text(
-                            "${currentText?.fontSize ?: 24}",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (isTextSelected) Color.Black else Color.Gray
-                        )
-
-                        Spacer(Modifier.width(8.dp))
-
-                        // Increase font size
-                        Button(
-                            onClick = {
-                                currentText?.let {
-                                    pushUndoSnapshot()
-                                    texts = texts.map { t ->
-                                        if (t.id == it.id) t.copy(fontSize = t.fontSize + 2) else t
-                                    }
-                                }
-                            },
-                            enabled = isTextSelected,
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(0.dp),
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_add), // plus icon
-                                contentDescription = "Increase Font",
-                                tint = Color.White
-                            )
-                        }
-                    }
-                }
-            }
+            )
 
             Spacer(Modifier.height(8.dp))
 
             // -------- Second row: Edit / Bold / Italic / Underline --------
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                IconButton(
-                    onClick = { editingText = currentText },
-                    enabled = isTextSelected
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit")
-                }
+            TextStyleRow(
+                isTextSelected = isTextSelected,
+                currentTextId = selectedTextId,
+                texts = texts,
+                onUpdateText = { updatedText ->
+                    pushUndoSnapshot()
+                    texts = texts.map { if (it.id == updatedText.id) updatedText else it }
+                },
+                onEditClick = { editingText = currentText }
+            )
 
-                IconButton(
-                    onClick = {
-                        pushUndoSnapshot()
-                        texts = texts.map {
-                            if (it.id == selectedTextId) it.copy(isBold = !it.isBold) else it
-                        }
-                    },
-                    enabled = isTextSelected
-                ) {
-                    Icon(painter = painterResource(R.drawable.ic_bold), contentDescription = "Bold")
-                }
-
-                IconButton(
-                    onClick = {
-                        pushUndoSnapshot()
-                        texts = texts.map {
-                            if (it.id == selectedTextId) it.copy(isItalic = !it.isItalic) else it
-                        }
-                    },
-                    enabled = isTextSelected
-                ) {
-                    Icon(painter = painterResource(R.drawable.ic_italic), contentDescription = "Italic")
-                }
-
-                IconButton(
-                    onClick = {
-                        pushUndoSnapshot()
-                        texts = texts.map {
-                            if (it.id == selectedTextId) it.copy(isUnderlined = !it.isUnderlined) else it
-                        }
-                    },
-                    enabled = isTextSelected
-                ) {
-                    Icon(painter = painterResource(R.drawable.ic_underlined), contentDescription = "Underline")
-                }
-            }
         }
 
 
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // Adding texts buttons + Undo and Redo buttons
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
+            val defaultFontSize = 24.sp
+            val textApproxWidth = 100f
+            val textApproxHeight by remember { derivedStateOf { currentDensity.run { defaultFontSize.toPx() } } }
             Button(onClick = {
                 pushUndoSnapshot() // snapshot before adding
-
-                val defaultFontSize = 24.sp
-                val textApproxWidth = 100f
-                val textApproxHeight = with(currentDensity) { defaultFontSize.toPx() }
 
                 val newItem = CanvasText(
                     text = "Sample Text",
@@ -380,38 +226,18 @@ fun CanvasEditorScreen() {
 
     // Edit dialog
     editingText?.let { text ->
-        // remember keyed by text id so new edit sessions re-initialize editedValue
-        var editedValue by remember(text.id) { mutableStateOf(text.text) }
-
-        AlertDialog(
-            onDismissRequest = { editingText = null },
-            title = { Text("Edit Text") },
-            text = {
-                TextField(
-                    value = editedValue,
-                    onValueChange = { editedValue = it }
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    // IMPORTANT: snapshot BEFORE applying the edit so undo reverts only the edit
-                    pushUndoSnapshot()
-                    texts = texts.map {
-                        if (it.id == text.id) it.copy(text = editedValue) else it
-                    }
-                    // keep selection on edited item
-                    selectedTextId = text.id
-                    editingText = null
-                }) {
-                    Text("Done")
+        EditTextDialog(
+            textItem = text,
+            onDismiss = { editingText = null },
+            onConfirm = { newText ->
+                pushUndoSnapshot()
+                texts = texts.map {
+                    if (it.id == text.id) it.copy(text = newText) else it
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { editingText = null }) {
-                    Text("Cancel")
-                }
+                selectedTextId = text.id
+                editingText = null
             }
         )
     }
-}
 
+}
